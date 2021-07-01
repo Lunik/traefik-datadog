@@ -1,0 +1,44 @@
+---
+
+version: '3'
+
+services:
+  datadog:
+    image: gcr.io/datadoghq/agent:7
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      DD_API_KEY: e3129c3e58c9b8471a6ef822361a9f13
+      DD_SITE: datadoghq.eu
+      DD_APM_DD_URL: "https://trace.agent.datadoghq.eu"
+      DD_APM_ENABLED: "true"
+      DD_APM_NON_LOCAL_TRAFFIC: "true"
+  traefik:
+    image: traefik:v2.5
+    ports:
+      - 8080:80
+    labels:
+      - traefik.http.routers.traefik.rule=Host(`traefik.local`)
+      - traefik.http.routers.traefik.service=api@internal
+      - traefik.http.routers.traefik.entrypoints=web
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - --entryPoints.web.address=:80
+      - --api.dashboard=true
+      - --pilot.dashboard=false
+      - --providers.docker=true
+      - --tracing=true
+      - --tracing.serviceName=traefik
+      - --tracing.datadog=true
+      - --tracing.datadog.localAgentHostPort=datadog:8126
+      - --tracing.datadog.debug=true
+      - --metrics=true
+      - --metrics.datadog=true
+      - --metrics.datadog.address=datadog:8125
+  whoami:
+    image: containous/whoami
+    labels:
+      - traefik.http.routers.whoami.rule=Host(`whoami.local`)
+      - traefik.http.services.whoami.loadbalancer.server.port=80
+      - traefik.http.routers.whoami.entrypoints=web
